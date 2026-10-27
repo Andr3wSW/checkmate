@@ -1,0 +1,675 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111713">
+<title>Checkmate — Online Chess</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg:#0c110e; --panel:#19221c; --panel2:#222e25;
+  --line:#354539; --text:#f2f6f1; --muted:#a0afa3;
+  --green:#91c65b; --green2:#b5e477;
+  --light:#eeeed2; --dark:#769656; --red:#ed6868;
+}
+* {box-sizing:border-box}
+body {
+  margin:0; min-height:100vh;
+  background:radial-gradient(ellipse at 50% -15%,#304632,transparent 50%),var(--bg);
+  color:var(--text);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+button,input {font:inherit}
+button {cursor:pointer;touch-action:manipulation;transition:filter .15s,transform .12s}
+button:hover:not(:disabled) {filter:brightness(1.1)}
+button:active:not(:disabled) {transform:scale(.985)}
+button:disabled {opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible {outline:2px solid var(--green2);outline-offset:3px}
+.app {width:min(1320px,100%);margin:auto;padding:clamp(12px,2.3vw,28px)}
+header {display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}
+.brand {display:flex;align-items:center;gap:12px;font-size:22px;font-weight:900;letter-spacing:-.6px}
+.logo {display:grid;place-items:center;width:45px;height:45px;border-radius:14px;background:linear-gradient(145deg,var(--green2),var(--green));color:#14200f;font-size:29px}
+.sub {font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+.status {display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:30px;padding:8px 12px;font-size:12px;color:var(--muted)}
+.dot {width:8px;height:8px;border-radius:50%;background:#d7ad51}
+.dot.on {background:var(--green2);box-shadow:0 0 10px #91c65b80}
+.layout {display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:22px;align-items:start}
+.board-side,.right-side {min-width:0}
+.playerbar {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;margin-bottom:10px;background:linear-gradient(135deg,#222e25,#172019);border:1px solid var(--line);border-radius:13px}
+.player {display:flex;align-items:center;gap:10px;min-width:0}
+.avatar {display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:#34463a;font-weight:850;flex:none}
+.pname {font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pdetail {font-size:12px;color:var(--muted)}
+.clock {font-variant-numeric:tabular-nums;font-weight:900;font-size:clamp(18px,2vw,24px);background:#0e1410;border:1px solid var(--line);border-radius:10px;padding:6px 11px;min-width:88px;text-align:center;flex:none}
+.clock.active {background:var(--green);color:#14200f;border-color:var(--green)}
+.clock.low {color:#ff8585;border-color:#8d4242}
+.board-wrap {position:relative;overflow:hidden;border-radius:7px;box-shadow:0 18px 50px #0006;user-select:none}
+.board {display:grid;grid-template-columns:repeat(8,minmax(0,1fr));width:100%;aspect-ratio:1}
+.square {position:relative;display:grid;place-items:center;aspect-ratio:1;border:0;border-radius:0;padding:0;min-width:0;min-height:0}
+.square.light {background:var(--light)}
+.square.dark {background:var(--dark)}
+.square.last:before,.square.selected:before,.square.check:before {content:"";position:absolute;inset:0;background:#f6f66970;pointer-events:none}
+.square.selected:before {background:#f6f669a8}
+.square.check:before {background:#ed514c99}
+.piece {position:relative;z-index:2;font-family:"Segoe UI Symbol","Noto Sans Symbols 2",serif;font-size:clamp(25px,5.3vw,67px);line-height:1;filter:drop-shadow(0 2px 1px #0004);pointer-events:none}
+.white-piece {color:#fffdf4;text-shadow:0 1px 2px #222,1px 0 #444,-1px 0 #444,0 -1px #444}
+.black-piece {color:#222;text-shadow:0 1px 0 #f7f2df}
+.coord {position:absolute;z-index:3;font-size:clamp(8px,.95vw,12px);font-weight:900;pointer-events:none}
+.rank {top:3px;left:4px}
+.file {right:4px;bottom:2px}
+.light .coord {color:#769656}
+.dark .coord {color:#eeeed2}
+.move-dot {position:absolute;z-index:1;width:25%;height:25%;border-radius:50%;background:#1b241f66;pointer-events:none}
+.capture-ring {position:absolute;inset:4%;border:clamp(3px,.45vw,6px) solid #1b241f66;border-radius:50%;z-index:1;pointer-events:none}
+.board-footer {display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;padding:11px 2px}
+.panel {background:linear-gradient(150deg,#202b23,#151d18);border:1px solid var(--line);border-radius:17px;padding:clamp(14px,1.7vw,20px);margin-bottom:14px}
+.panel h2 {font-size:17px;margin:0 0 5px}
+.muted {color:var(--muted)}
+.small {font-size:12px}
+.field-label {display:block;font-size:12px;color:var(--muted);margin:14px 0 7px}
+.field {width:100%;min-width:0;border:1px solid #3a4b3e;background:#0f1511;color:var(--text);border-radius:10px;padding:11px 12px}
+.field:focus {border-color:var(--green);outline:none}
+.two {display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.primary,.secondary {border-radius:10px;padding:11px 13px}
+.primary {background:linear-gradient(135deg,var(--green2),var(--green));color:#14200f;font-weight:900;border:0}
+.secondary {background:#26342a;color:var(--text);border:1px solid #405345;font-weight:750}
+.full {width:100%;margin-top:12px}
+.mode-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:11px}
+.mode {border:1px solid #344438;background:#111813;border-radius:10px;padding:9px 3px;text-align:center;color:var(--text);min-width:0}
+.mode strong {display:block;font-size:13px}
+.mode span {display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.mode.active {border-color:var(--green);background:#2a3b2b;box-shadow:inset 0 0 0 1px #81b64c40}
+.tabs {display:flex;gap:5px;border-bottom:1px solid var(--line);margin:0 0 12px;padding-bottom:10px}
+.tab {flex:1;background:transparent;color:var(--muted);padding:8px;border-radius:8px;border:0}
+.tab.active {background:#334335;color:#e9f3e5;font-weight:800}
+.moves {height:190px;overflow:auto;background:#101612;border:1px solid #2f3d33;border-radius:10px;padding:8px}
+.move-row {display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;padding:6px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+.move-row:nth-child(even) {background:#1d2820}
+.move-num {color:var(--muted)}
+.actions {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}
+.actions button {padding:9px 2px;font-size:12px}
+.notice {padding:11px 12px;border-radius:10px;background:#29392b;border:1px solid #3d583c;color:#d9edce;font-size:13px;margin-top:12px;overflow-wrap:anywhere}
+.notice.error {background:#3a2222;border-color:#744040;color:#ffc6c6}
+.hide {display:none!important}
+.room-code {font-size:clamp(22px,3vw,29px);letter-spacing:5px;font-weight:950;color:var(--green2);margin:7px 0}
+.footer {color:#718176;text-align:center;font-size:11px;padding:18px 0 5px}
+.overlay {position:absolute;inset:0;background:#0b100de8;z-index:8;display:grid;place-items:center;text-align:center;padding:24px;backdrop-filter:blur(3px)}
+.overlay-card {max-width:300px}
+.overlay h2 {font-size:clamp(23px,3vw,29px);margin:0 0 6px}
+.overlay p {color:#c2cdc4;font-size:14px}
+.overlay .primary {margin-top:8px}
+@media(min-width:851px) {.right-side {position:sticky;top:12px}}
+@media(max-width:850px) {
+  .app {padding:12px}
+  .layout {grid-template-columns:minmax(0,1fr);gap:10px}
+  .board-side,.right-side {max-width:680px;margin:auto;width:100%}
+  .piece {font-size:clamp(28px,9vw,64px)}
+  header {margin-bottom:14px}
+  .sub {display:none}
+  .panel {padding:15px}
+}
+@media(max-width:390px) {
+  .brand {font-size:19px}
+  .logo {width:39px;height:39px}
+  .status {padding:7px 9px}
+  .playerbar {padding:9px}
+  .avatar {width:32px;height:32px}
+  .clock {min-width:76px;padding:5px 7px}
+  .mode span {font-size:9px}
+  .actions {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .actions button {padding:10px}
+}
+@media(prefers-reduced-motion:reduce) {
+  *,*:before,*:after {animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand"><div class="logo">♞</div><div>CHECKMATE<div class="sub">Play chess with anyone</div></div></div>
+  <div class="status"><span class="dot" id="connectionDot"></span><span id="connectionText">Connecting…</span></div>
+</header>
+
+<main class="layout">
+<section class="board-side" aria-label="Chess game">
+  <div class="playerbar">
+    <div class="player"><div class="avatar" id="topAvatar">♟</div><div><div class="pname" id="topName">Black player</div><div class="pdetail">Black pieces</div></div></div>
+    <div class="clock" id="blackClock">—:—</div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board" role="group" aria-label="Chess board"></div>
+    <div class="overlay" id="gameOverlay">
+      <div class="overlay-card">
+        <h2>Ready to play?</h2>
+        <p>Create a room or join a friend's code to start a live game.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-footer"><span id="turnText">Waiting for a match</span><span id="gameModeLabel">Choose a time control</span></div>
+
+  <div class="playerbar">
+    <div class="player"><div class="avatar" id="bottomAvatar">♙</div><div><div class="pname" id="bottomName">White player</div><div class="pdetail">White pieces</div></div></div>
+    <div class="clock" id="whiteClock">—:—</div>
+  </div>
+</section>
+
+<aside class="right-side">
+<section class="panel" id="lobbyPanel">
+  <h2>Play a friend</h2>
+  <div class="muted small">No account form needed. Choose a name and create a private room.</div>
+
+  <label class="field-label" for="guestName">Display name</label>
+  <input class="field" id="guestName" maxlength="18" placeholder="e.g. KnightRider" autocomplete="nickname">
+
+  <div class="field-label">Time control</div>
+  <div class="mode-grid" id="modeGrid">
+    <button class="mode" data-mode="1+0"><strong>1 min</strong><span>Bullet · 1+0</span></button>
+    <button class="mode" data-mode="2+1"><strong>2 | 1</strong><span>Bullet · 2+1</span></button>
+    <button class="mode active" data-mode="3+0"><strong>3 min</strong><span>Bullet · 3+0</span></button>
+    <button class="mode" data-mode="3+2"><strong>3 | 2</strong><span>Blitz · 3+2</span></button>
+    <button class="mode" data-mode="5+0"><strong>5 min</strong><span>Blitz · 5+0</span></button>
+    <button class="mode" data-mode="5+3"><strong>5 | 3</strong><span>Blitz · 5+3</span></button>
+    <button class="mode" data-mode="10+0"><strong>10 min</strong><span>Rapid · 10+0</span></button>
+    <button class="mode" data-mode="10+5"><strong>10 | 5</strong><span>Rapid · 10+5</span></button>
+    <button class="mode" data-mode="15+10"><strong>15 | 10</strong><span>Rapid · 15+10</span></button>
+    <button class="mode" data-mode="30+0"><strong>30 min</strong><span>Classical</span></button>
+    <button class="mode" data-mode="30+20"><strong>30 | 20</strong><span>Classical</span></button>
+    <button class="mode" data-mode="custom"><strong>Custom</strong><span>Set your clock</span></button>
+  </div>
+
+  <div id="customControls" class="two hide">
+    <div><label class="field-label" for="customMinutes">Minutes</label><input class="field" id="customMinutes" type="number" min="1" max="180" value="10"></div>
+    <div><label class="field-label" for="customInc">Increment (sec)</label><input class="field" id="customInc" type="number" min="0" max="60" value="0"></div>
+  </div>
+
+  <div class="two" style="margin-top:14px">
+    <button class="primary" id="hostBtn">＋ Host game</button>
+    <button class="secondary" id="joinBtn">↗ Join by code</button>
+  </div>
+
+  <div id="joinControls" class="hide">
+    <label class="field-label" for="roomInput">Room code</label>
+    <input class="field" id="roomInput" maxlength="6" placeholder="6-character code" style="text-transform:uppercase;letter-spacing:3px">
+    <button class="primary full" id="joinConfirm">Join room</button>
+  </div>
+  <div id="roomInfo" class="notice hide"></div>
+  <div id="lobbyMessage" class="notice hide" role="status" aria-live="polite"></div>
+</section>
+
+<section class="panel">
+  <div class="tabs">
+    <button class="tab active" data-tab="moves">Moves</button>
+    <button class="tab" data-tab="details">Game info</button>
+  </div>
+  <div id="movesTab"><div class="moves" id="moveList"><div class="muted small">Moves will appear here.</div></div></div>
+  <div id="detailsTab" class="hide">
+    <div class="muted small">Room code</div><div class="room-code" id="detailCode">— — —</div>
+    <div class="muted small">Share the code with your opponent.</div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <div class="muted small">Time control</div><strong id="detailMode">Not started</strong>
+    <p class="muted small" id="detailStatus">Waiting for opponent</p>
+  </div>
+  <div class="actions">
+    <button class="secondary" id="flipBtn">⇅ Flip</button>
+    <button class="secondary" id="drawBtn" disabled>½ Draw</button>
+    <button class="secondary" id="resignBtn" disabled>⚑ Resign</button>
+    <button class="secondary" id="copyBtn" disabled>▣ Copy code</button>
+  </div>
+  <div class="notice hide" id="gameMessage" role="status" aria-live="polite"></div>
+</section>
+<div class="footer">Made for friendly games · Keep your room code private</div>
+</aside>
+</main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyB1BgVw_108l_IFz7aBYtSGG4ktQqIrK4s",
+  authDomain: "checkmate-ab589.firebaseapp.com",
+  databaseURL: "https://checkmate-ab589-default-rtdb.firebaseio.com",
+  projectId: "checkmate-ab589",
+  storageBucket: "checkmate-ab589.firebasestorage.app",
+  messagingSenderId: "715857675477",
+  appId: "1:715857675477:web:779b2e06ca609a00088e5c",
+  measurementId: "G-7HETGCWJTF"
+};
+
+const $ = id => document.getElementById(id);
+const glyph = {
+  wK:"♔",wQ:"♕",wR:"♖",wB:"♗",wN:"♘",wP:"♙",
+  bK:"♚",bQ:"♛",bR:"♜",bB:"♝",bN:"♞",bP:"♟"
+};
+const modes = {
+  "1+0":[60,0],"2+1":[120,1],"3+0":[180,0],"3+2":[180,2],
+  "5+0":[300,0],"5+3":[300,3],"10+0":[600,0],"10+5":[600,5],
+  "15+10":[900,10],"30+0":[1800,0],"30+20":[1800,20]
+};
+
+let db=null, roomRef=null, room=null, roomCode="", playerId="";
+let color=null, selected=null, flipped=false, chosenMode="3+0";
+let firebaseReady=false, firebasePromise=null, finishingTimeout=false;
+let localMoves=[], localLast=null;
+const chess = new Chess();
+
+function say(message,error=false) {
+  const el=$("lobbyMessage");
+  el.textContent=message;
+  el.classList.remove("hide","error");
+  el.classList.toggle("error",error);
+}
+function gameSay(message,error=false) {
+  const el=$("gameMessage");
+  el.textContent=message;
+  el.classList.remove("hide","error");
+  el.classList.toggle("error",error);
+}
+function hideSay() {$("lobbyMessage").classList.add("hide")}
+function safeName() {
+  return $("guestName").value.trim().replace(/[<>\u0000-\u001f]/g,"").slice(0,18)||"Guest";
+}
+function modeInfo(mode) {
+  if(mode==="custom") return [
+    Math.max(1,Math.min(180,Number($("customMinutes").value)||10))*60,
+    Math.max(0,Math.min(60,Number($("customInc").value)||0))
+  ];
+  return modes[mode]||modes["3+0"];
+}
+function randomCode() {
+  const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+}
+function setConnection(ok,message) {
+  $("connectionDot").classList.toggle("on",ok);
+  $("connectionText").textContent=message;
+}
+async function initFirebase() {
+  if(firebaseReady && db && firebase.auth().currentUser) return true;
+  if(firebasePromise) return firebasePromise;
+  firebasePromise=(async()=>{
+    try {
+      if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      db=firebase.database();
+      if(!firebase.auth().currentUser) await firebase.auth().signInAnonymously();
+      playerId=firebase.auth().currentUser.uid;
+      db.ref(".info/connected").on("value",s=>setConnection(!!s.val(),s.val()?"Connected":"Reconnecting…"));
+      firebaseReady=true;
+      return true;
+    } catch(e) {
+      setConnection(false,"Sign-in failed");
+      say("Firebase sign-in failed: "+e.message+". Enable Anonymous sign-in in Firebase Authentication.",true);
+      return false;
+    } finally {
+      firebasePromise=null;
+    }
+  })();
+  return firebasePromise;
+}
+function squareLabel(sq,p) {
+  const names={k:"king",q:"queen",r:"rook",b:"bishop",n:"knight",p:"pawn"};
+  return sq+(p?", "+(p.color==="w"?"white ":"black ")+names[p.type]:", empty");
+}
+function findKing(c) {
+  const b=c.board();
+  for(let r=0;r<8;r++) for(let f=0;f<8;f++) {
+    const p=b[r][f];
+    if(p&&p.type==="k"&&p.color===c.turn()) return "abcdefgh"[f]+(8-r);
+  }
+  return null;
+}
+function renderBoard() {
+  const board=$("board");
+  board.replaceChildren();
+  const files=flipped?"hgfedcba":"abcdefgh";
+  const ranks=flipped?"12345678":"87654321";
+  const legal=chess.moves({verbose:true});
+  const destinations=selected?legal.filter(m=>m.from===selected).map(m=>m.to):[];
+  const king=chess.is_check()?findKing(chess):null;
+
+  for(let ri=0;ri<8;ri++) for(let fi=0;fi<8;fi++) {
+    const sq=files[fi]+ranks[ri],piece=chess.get(sq);
+    const light=((files.charCodeAt(fi)-97)+(Number(ranks[ri])-1))%2===1;
+    const btn=document.createElement("button");
+    btn.type="button";
+    btn.className="square "+(light?"light":"dark");
+    btn.setAttribute("aria-label",squareLabel(sq,piece));
+    if(localLast&&(localLast.from===sq||localLast.to===sq)) btn.classList.add("last");
+    if(selected===sq) btn.classList.add("selected");
+    if(king===sq) btn.classList.add("check");
+
+    if(destinations.includes(sq)) {
+      const mark=document.createElement("span");
+      mark.className=piece?"capture-ring":"move-dot";
+      btn.appendChild(mark);
+    }
+    if(piece) {
+      const span=document.createElement("span");
+      span.className="piece "+(piece.color==="w"?"white-piece":"black-piece");
+      span.textContent=glyph[piece.color+piece.type.toUpperCase()];
+      btn.appendChild(span);
+    }
+    if(fi===0) {
+      const c=document.createElement("span");
+      c.className="coord rank";c.textContent=ranks[ri];btn.appendChild(c);
+    }
+    if(ri===7) {
+      const c=document.createElement("span");
+      c.className="coord file";c.textContent=files[fi];btn.appendChild(c);
+    }
+    btn.addEventListener("click",()=>onSquare(sq));
+    board.appendChild(btn);
+  }
+}
+function shakeBoard() {
+  const b=$("board");
+  b.animate([{transform:"translateX(-4px)"},{transform:"translateX(4px)"},{transform:"translateX(0)"}],{duration:180});
+}
+async function onSquare(sq) {
+  if(!room||room.status!=="playing") {shakeBoard();return}
+  if(!color||color!==chess.turn()) {gameSay("It's not your turn.",true);return}
+  const piece=chess.get(sq);
+  if(selected) {
+    const matches=chess.moves({square:selected,verbose:true}).filter(m=>m.to===sq);
+    if(matches.length) {
+      let promotion="q";
+      if(matches.some(m=>m.flags.includes("p"))) {
+        const choice=prompt("Promote to Q, R, B, or N?","q");
+        if(choice===null) {selected=null;renderBoard();return}
+        promotion=({q:"q",r:"r",b:"b",n:"n"})[(choice||"q").toLowerCase()]||"q";
+      }
+      await sendMove(selected,sq,promotion);
+      return;
+    }
+    if(piece&&piece.color===color) {selected=sq;renderBoard();return}
+    selected=null;renderBoard();shakeBoard();
+    gameSay("Illegal move — choose a highlighted square.",true);
+    return;
+  }
+  if(piece&&piece.color===color) {selected=sq;renderBoard()}
+  else {shakeBoard();gameSay("Select one of your pieces first.",true)}
+}
+function buildMoves(moves) {
+  const list=$("moveList");list.replaceChildren();
+  if(!moves||!moves.length) {
+    const empty=document.createElement("div");
+    empty.className="muted small";empty.textContent="No moves yet.";
+    list.appendChild(empty);return;
+  }
+  for(let i=0;i<moves.length;i+=2) {
+    const row=document.createElement("div");row.className="move-row";
+    const num=document.createElement("span");num.className="move-num";
+    num.textContent=(Math.floor(i/2)+1)+".";
+    const white=document.createElement("span"),black=document.createElement("span");
+    white.textContent=moves[i]?.san||"";black.textContent=moves[i+1]?.san||"";
+    row.append(num,white,black);list.appendChild(row);
+  }
+  list.scrollTop=list.scrollHeight;
+}
+function clockText(seconds) {
+  seconds=Math.max(0,Math.floor(seconds||0));
+  return Math.floor(seconds/60)+":"+String(seconds%60).padStart(2,"0");
+}
+function currentClocks() {
+  const c={...(room?.clocks||{w:180,b:180})};
+  if(room?.status==="playing"&&room.turnStartedAt) {
+    const elapsed=(Date.now()-room.turnStartedAt)/1000;
+    c[room.turn]=Math.max(0,(Number(c[room.turn])||0)-elapsed);
+  }
+  return c;
+}
+function updateClockDisplay() {
+  if(!room) {
+    $("whiteClock").textContent=$("blackClock").textContent="—:—";
+    return;
+  }
+  const c=currentClocks();
+  for(const side of ["w","b"]) {
+    const el=$(side==="w"?"whiteClock":"blackClock");
+    el.textContent=clockText(c[side]);
+    el.classList.toggle("active",room.status==="playing"&&room.turn===side);
+    el.classList.toggle("low",room.status==="playing"&&c[side]<=10);
+  }
+  if(room.status==="playing"&&(c.w<=0||c.b<=0)&&room.hostId===playerId) {
+    finishByTimeout(c.w<=0?"w":"b");
+  }
+}
+function refreshUI() {
+  if(!room)return;
+  const white=room.players?.w,black=room.players?.b;
+  $("topName").textContent=black?.name||"Waiting for opponent";
+  $("topAvatar").textContent=(black?.name||"♟")[0].toUpperCase();
+  $("bottomName").textContent=white?.name||"Waiting for player";
+  $("bottomAvatar").textContent=(white?.name||"♙")[0].toUpperCase();
+  $("turnText").textContent=room.status==="playing"?(room.turn==="w"?"White to move":"Black to move"):room.status==="waiting"?"Waiting for opponent":room.result||"Finished";
+  $("gameModeLabel").textContent=room.modeLabel||room.mode||"Chess";
+  $("detailCode").textContent=roomCode||"— — —";
+  $("detailMode").textContent=room.modeLabel||room.mode||"—";
+  $("detailStatus").textContent=room.status==="waiting"?"Waiting for an opponent":room.status==="playing"?"Game in progress":room.result||"Finished";
+  $("gameOverlay").classList.toggle("hide",room.status==="playing");
+  if(room.status==="waiting") renderOverlay("Room "+roomCode,"Share this code with your opponent.",true);
+  else if(room.status==="finished") renderOverlay(room.result||"Game over","Start another room to play again.",false);
+  $("lobbyPanel").classList.toggle("hide",room.status==="playing"||room.status==="finished");
+  $("copyBtn").disabled=!roomCode;
+  $("drawBtn").disabled=room.status!=="playing";
+  $("resignBtn").disabled=room.status!=="playing";
+  updateClockDisplay();
+}
+function renderOverlay(title,description,showCode) {
+  const ov=$("gameOverlay");ov.replaceChildren();
+  const card=document.createElement("div");card.className="overlay-card";
+  const h=document.createElement("h2");h.textContent=title;
+  const p=document.createElement("p");p.textContent=description;
+  card.append(h,p);
+  if(showCode) {
+    const code=document.createElement("div");code.className="room-code";code.textContent=roomCode;card.appendChild(code);
+    const btn=document.createElement("button");btn.className="primary";btn.textContent="Copy invite code";
+    btn.addEventListener("click",copyRoomCode);card.appendChild(btn);
+  } else {
+    const btn=document.createElement("button");btn.className="primary";btn.textContent="New game";
+    btn.addEventListener("click",newRoom);card.appendChild(btn);
+  }
+  ov.appendChild(card);
+}
+function syncRoom(data) {
+  if(!data)return;
+  room=data;
+  try {chess.load(data.fen||new Chess().fen())}
+  catch(e) {gameSay("Invalid chess position. Please rejoin the room.",true);return}
+  localMoves=data.moves||[];
+  localLast=localMoves.length?{from:localMoves[localMoves.length-1].from,to:localMoves[localMoves.length-1].to}:null;
+  selected=null;renderBoard();buildMoves(localMoves);refreshUI();
+  if(data.status==="playing")hideSay();
+  if(data.drawOffer&&data.drawOffer!==playerId)gameSay("Your opponent offered a draw. Press Draw to accept.");
+}
+function listenRoom(code) {
+  if(roomRef)roomRef.off();
+  roomCode=code;roomRef=db.ref("rooms/"+code);
+  roomRef.on("value",s=>{
+    if(!s.exists()) {say("This room no longer exists.",true);return}
+    syncRoom(s.val());
+  },e=>say("Could not read room: "+e.message,true));
+}
+async function hostGame() {
+  if(!await initFirebase())return;
+  const name=safeName(),clock=modeInfo(chosenMode);
+  try {
+    let code=randomCode(),ref=db.ref("rooms/"+code);
+    for(let i=0;i<5&&(await ref.get()).exists();i++) {
+      code=randomCode();ref=db.ref("rooms/"+code);
+    }
+    const data={
+      code,hostId:playerId,createdAt:firebase.database.ServerValue.TIMESTAMP,
+      players:{w:{id:playerId,name},b:null},mode:chosenMode,
+      modeLabel:modeText(chosenMode,clock),initialClock:clock[0],increment:clock[1],
+      clocks:{w:clock[0],b:clock[0]},turn:"w",turnStartedAt:Date.now(),
+      status:"waiting",fen:new Chess().fen(),moves:[],result:"",drawOffer:null
+    };
+    const result=await ref.transaction(current=>current?undefined:data);
+    if(!result.committed) {say("Could not reserve a room code. Try again.",true);return}
+    color="w";roomCode=code;listenRoom(code);
+    $("roomInfo").classList.remove("hide");
+    $("roomInfo").textContent="Room created: "+code+" — share this code with your opponent.";
+    say("Room ready. Waiting for your opponent.");
+    $("lobbyPanel").classList.add("hide");
+  } catch(e) {say("Could not create room: "+e.message,true)}
+}
+async function joinGame() {
+  if(!await initFirebase())return;
+  const code=$("roomInput").value.trim().toUpperCase();
+  if(!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {say("Enter a valid six-character room code.",true);return}
+  const ref=db.ref("rooms/"+code);
+  try {
+    const claim=await ref.transaction(current=>{
+      if(!current||current.status!=="waiting"||current.players?.b)return;
+      if(current.players?.w?.id===playerId)return current;
+      current.players=current.players||{};
+      current.players.b={id:playerId,name:safeName()};
+      current.status="playing";current.turnStartedAt=Date.now();
+      return current;
+    });
+    if(!claim.committed) {
+      const snap=await ref.get();
+      say(snap.exists()?"That room is full or the game has started.":"Room not found. Check the code.",true);
+      return;
+    }
+    const data=claim.snapshot.val();
+    color=data.players?.w?.id===playerId?"w":"b";
+    roomCode=code;listenRoom(code);
+    $("lobbyPanel").classList.add("hide");
+    $("roomInfo").classList.remove("hide");
+    $("roomInfo").textContent="Connected to room "+code;
+    say("Joined room "+code+". Good luck!");
+  } catch(e) {say("Could not join room: "+e.message,true)}
+}
+function modeText(mode,clock) {
+  return mode==="custom"?Math.floor(clock[0]/60)+"+"+clock[1]+" custom":mode||"3+0";
+}
+async function sendMove(from,to,promotion) {
+  if(!roomRef||!room||room.status!=="playing")return;
+  try {
+    let errorMessage="";
+    const result=await roomRef.transaction(fresh=>{
+      if(!fresh||fresh.status!=="playing")return;
+      if(fresh.players?.[fresh.turn]?.id!==playerId) {errorMessage="It's not your turn.";return}
+      const g=new Chess(fresh.fen);
+      const move=g.move({from,to,promotion});
+      if(!move) {errorMessage="That move is no longer legal. Try again.";return}
+      const clocks={...(fresh.clocks||{})};
+      const elapsed=(Date.now()-Number(fresh.turnStartedAt||Date.now()))/1000;
+      clocks[fresh.turn]=Math.max(0,(Number(clocks[fresh.turn])||0)-elapsed);
+      if(clocks[fresh.turn]<=0) {
+        errorMessage="Your clock ran out.";
+        fresh.status="finished";fresh.result=(fresh.turn==="w"?"Black":"White")+" wins on time";
+        return fresh;
+      }
+      clocks[fresh.turn]+=Number(fresh.increment||0);
+      const nextTurn=g.turn(),over=g.game_over();
+      const resultText=over?(g.in_checkmate()?(nextTurn==="w"?"Black wins by checkmate":"White wins by checkmate"):"Draw"):"";
+      return {
+        ...fresh,fen:g.fen(),turn:nextTurn,clocks,turnStartedAt:Date.now(),
+        moves:[...(fresh.moves||[]),{from,to,san:move.san,color:move.color,at:Date.now()}],
+        status:over?"finished":"playing",result:resultText,drawOffer:null
+      };
+    });
+    if(!result.committed&&errorMessage)gameSay(errorMessage,true);
+    else if(result.committed) {selected=null;hideSay();$("gameMessage").classList.add("hide")}
+  } catch(e) {gameSay("Move failed to sync. Check your connection and try again.",true)}
+}
+async function finishByTimeout(loser) {
+  if(!roomRef||!room||room.status!=="playing"||finishingTimeout)return;
+  finishingTimeout=true;
+  try {
+    await roomRef.transaction(d=>{
+      if(!d||d.status!=="playing")return;
+      const elapsed=(Date.now()-Number(d.turnStartedAt||Date.now()))/1000;
+      const remaining=Math.max(0,(Number(d.clocks?.[d.turn])||0)-elapsed);
+      if(d.turn!==loser||remaining>0)return;
+      d.status="finished";d.result=(loser==="w"?"Black":"White")+" wins on time";
+      return d;
+    });
+  } catch(e) {} finally {finishingTimeout=false}
+}
+async function offerDraw() {
+  if(!roomRef||!room||room.status!=="playing")return;
+  try {
+    const result=await roomRef.transaction(d=>{
+      if(!d||d.status!=="playing")return;
+      if(d.drawOffer&&d.drawOffer!==playerId) {
+        d.status="finished";d.result="Draw agreed";d.drawOffer=null;return d;
+      }
+      d.drawOffer=playerId;return d;
+    });
+    if(result.committed&&result.snapshot.val()?.status==="playing")gameSay("Draw offer sent. Your opponent must press Draw to accept.");
+  } catch(e) {gameSay("Could not send draw offer. Try again.",true)}
+}
+async function resign() {
+  if(!roomRef||!room||room.status!=="playing"||!confirm("Resign this game?"))return;
+  try {
+    await roomRef.transaction(d=>{
+      if(!d||d.status!=="playing"||d.players?.[color]?.id!==playerId)return;
+      d.status="finished";d.result=(color==="w"?"Black":"White")+" wins by resignation";d.drawOffer=null;return d;
+    });
+  } catch(e) {gameSay("Could not resign. Check your connection.",true)}
+}
+async function copyRoomCode() {
+  if(!roomCode)return;
+  try {
+    await navigator.clipboard.writeText(roomCode);
+    gameSay("Room code copied: "+roomCode);
+  } catch(e) {prompt("Copy this room code:",roomCode)}
+}
+function newRoom() {
+  if(roomRef)roomRef.off();
+  roomRef=null;room=null;roomCode="";color=null;selected=null;
+  chess.reset();localMoves=[];localLast=null;
+  $("lobbyPanel").classList.remove("hide");
+  $("gameOverlay").classList.remove("hide");
+  $("gameOverlay").replaceChildren();
+  const card=document.createElement("div");card.className="overlay-card";
+  const h=document.createElement("h2");h.textContent="Ready to play?";
+  const p=document.createElement("p");p.textContent="Create a room or join a friend's code to start a live game.";
+  card.append(h,p);$("gameOverlay").appendChild(card);
+  $("roomInfo").classList.add("hide");$("gameMessage").classList.add("hide");
+  $("detailCode").textContent="— — —";$("turnText").textContent="Waiting for a match";
+  $("gameModeLabel").textContent="Choose a time control";
+  $("whiteClock").textContent=$("blackClock").textContent="—:—";
+  buildMoves([]);renderBoard();say("Choose a time control and host or join a room.");
+}
+$("hostBtn").addEventListener("click",hostGame);
+$("joinBtn").addEventListener("click",()=>{
+  $("joinControls").classList.toggle("hide");
+  if(!$("joinControls").classList.contains("hide"))$("roomInput").focus();
+});
+$("joinConfirm").addEventListener("click",joinGame);
+$("roomInput").addEventListener("keydown",e=>{if(e.key==="Enter")joinGame()});
+$("flipBtn").addEventListener("click",()=>{flipped=!flipped;renderBoard()});
+$("drawBtn").addEventListener("click",offerDraw);
+$("resignBtn").addEventListener("click",resign);
+$("copyBtn").addEventListener("click",copyRoomCode);
+$("modeGrid").addEventListener("click",e=>{
+  const b=e.target.closest("[data-mode]");if(!b)return;
+  chosenMode=b.dataset.mode;
+  document.querySelectorAll(".mode").forEach(x=>x.classList.toggle("active",x===b));
+  $("customControls").classList.toggle("hide",chosenMode!=="custom");
+});
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));
+  $("movesTab").classList.toggle("hide",b.dataset.tab!=="moves");
+  $("detailsTab").classList.toggle("hide",b.dataset.tab!=="details");
+}));
+
+renderBoard();buildMoves([]);
+setInterval(()=>{if(room)updateClockDisplay()},250);
+setConnection(false,"Signing in…");
+initFirebase();
+</script>
+</body>
+</html>
